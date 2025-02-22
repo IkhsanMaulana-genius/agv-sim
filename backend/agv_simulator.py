@@ -113,7 +113,6 @@ class AGVSimulator:
     def process_instant_action(self, action: InstantAction):
         """Process actions to pause, resume, or stop the AGV."""
         if action.actionType == "PAUSE":
-            print("pause-----------------------")
             self._is_paused = True
             self.state = "PAUSED"
         elif action.actionType == "RESUME":

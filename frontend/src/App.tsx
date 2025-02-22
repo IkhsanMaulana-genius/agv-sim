@@ -15,7 +15,6 @@ const App: React.FC = () => {
   const [message, setMessage] = useState<string>("");
   const [coordinates, setCoordinates] = useState<string>("");
   const [mqttClient, setMqttClient] = useState<MqttClient | null>(null);
-
   // Connect to MQTT broker on mount
   useEffect(() => {
     const mqttClient = mqtt.connect(
@@ -25,6 +24,7 @@ const App: React.FC = () => {
         password: process.env.REACT_APP_MQTT_PASSWORD,
         //  reconnectPeriod: 5000, // Reconnect every 5 seconds
       }
+
     );
 
     mqttClient.on("connect", () => {
