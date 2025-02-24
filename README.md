@@ -16,22 +16,23 @@ A real-time AGV (Automated Guided Vehicle) simulator implementing the VDA5050 pr
 - Frontend: React application with MQTT client
 - Backend: Python FastAPI with AGV simulation logic
 - Communication: MQTT protocol over WebSocket
+- MQTT Broker: HiveMQ Cloud
 
 ## Environment Setup
 
 ### Frontend Environment (.env)
 ```env
-REACT_APP_MQTT_HOST=<MQTT Host URL>
-REACT_APP_MQTT_PORT=8884
-REACT_APP_MQTT_USERNAME=<UserName>
-REACT_APP_MQTT_PASSWORD=<Password>
+REACT_APP_MQTT_HOST=<MQTT Host URL> (e.g. d5452ceae5134e97ab158e11cde16dcc.s1.eu.hivemq.cloud)
+REACT_APP_MQTT_PORT=<MQTT Port> (e.g. 8884)
+REACT_APP_MQTT_USERNAME=<UserName> (e.g. test-user)
+REACT_APP_MQTT_PASSWORD=<Password> (e.g. 12345678)
 ```
 ### Backend Environment (.env)
 ```env
-MQTT_HOST=<MQTT Host URL>
-MQTT_PORT=8883
-MQTT_USERNAME=<UserName>
-MQTT_PASSWORD=<Password>
+MQTT_HOST=<MQTT Host URL> (e.g. d5452ceae5134e97ab158e11cde16dcc.s1.eu.hivemq.cloud)
+MQTT_PORT=8883 (e.g. 8883)
+MQTT_USERNAME=<UserName> (e.g. test-user)
+MQTT_PASSWORD=<Password> (e.g. 12345678)
 ```
 
 ## Installation
