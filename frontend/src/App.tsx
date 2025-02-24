@@ -3,41 +3,48 @@ import mqtt, { MqttClient } from "mqtt";
 import "./App.css";
 import { VDA5050Order, AGVState, InstantAction, ActionType } from "./type";
 
-// MQTT Topics
 const MQTT_TOPIC_ORDER = "vda5050/order";
 const MQTT_TOPIC_STATE = "vda5050/state";
 const MQTT_TOPIC_INSTANT_ACTIONS = "vda5050/instantActions";
+const MQTT_TOPIC_ACK = "vda5050/ack";
+
+const initialState: AGVState = {
+  headerId: 1,
+  timestamp: new Date().toISOString(),
+  version: "2.0.0",
+  manufacturer: "AGVSimulator",
+  serialNumber: "AGV001",
+  orderId: "",
+  orderUpdateId: 0,
+  lastNodeId: "",
+  lastNodeSequenceId: 0,
+  driving: false,
+  position: { x: 0, y: 0, theta: 0 },
+  batteryState: { batteryCharge: 100, charging: false },
+  operatingMode: "AUTOMATIC",
+  actionStates: []
+};
 
 const App: React.FC = () => {
-  const [agvState, setAgvState] = useState<AGVState | null>(null);
-  const [connectionStatus, setConnectionStatus] =
-    useState<string>("Disconnected");
+  const [agvState, setAgvState] = useState<AGVState>(initialState);
+  const [connectionStatus, setConnectionStatus] = useState<string>("Disconnected");
   const [message, setMessage] = useState<string>("");
   const [coordinates, setCoordinates] = useState<string>("");
   const [mqttClient, setMqttClient] = useState<MqttClient | null>(null);
-  // Connect to MQTT broker on mount
+
   useEffect(() => {
     const mqttClient = mqtt.connect(
       `wss://${process.env.REACT_APP_MQTT_HOST}:${process.env.REACT_APP_MQTT_PORT}/mqtt`,
       {
         username: process.env.REACT_APP_MQTT_USERNAME,
         password: process.env.REACT_APP_MQTT_PASSWORD,
-        //  reconnectPeriod: 5000, // Reconnect every 5 seconds
       }
-
     );
 
     mqttClient.on("connect", () => {
       console.log("Connected to MQTT broker");
       setConnectionStatus("Connected");
-      mqttClient.subscribe(MQTT_TOPIC_STATE, (err) => {
-        if (err) {
-          console.error("Subscription error:", err);
-          setMessage("Failed to subscribe to state topic");
-        } else {
-          console.log("Subscribed to topic:", MQTT_TOPIC_STATE);
-        }
-      });
+      mqttClient.subscribe(MQTT_TOPIC_STATE, { qos: 1 });
     });
 
     mqttClient.on("error", (err) => {
@@ -50,9 +57,18 @@ const App: React.FC = () => {
       if (topic === MQTT_TOPIC_STATE) {
         try {
           const state: AGVState = JSON.parse(message.toString());
-          setAgvState(state);
+          if (state.operatingMode === "STOPPED") {
+            setAgvState(initialState);
+          } else {
+            setAgvState(state);
+          }
           console.log("AGV State Received:", state);
           setMessage("AGV state updated successfully");
+          
+          mqttClient.publish(MQTT_TOPIC_ACK, JSON.stringify({
+            stateId: state.headerId,
+            timestamp: new Date().toISOString()
+          }));
         
         } catch (error) {
           console.error("Error parsing AGV state:", error);
@@ -69,7 +85,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Function to send an order
   const validateCoordinates = (input: string): boolean => {
     const [x, y] = input.split(",").map(Number);
     return !isNaN(x) && !isNaN(y);
@@ -98,22 +113,20 @@ const App: React.FC = () => {
       nodes: [{ nodeId: "N1", x, y }],
     };
 
-    mqttClient.publish(MQTT_TOPIC_ORDER, JSON.stringify(order), (err) => {
-      if (err) {
-        console.error("Failed to publish order:", err);
-        setMessage("Failed to send order");
-      } else {
-        console.log("Order sent:", order);
-        setMessage("Order sent successfully");
-      }
-    });
+    mqttClient.publish(MQTT_TOPIC_ORDER, JSON.stringify(order));
   };
 
-  // Function to send an instant action
   const sendInstantAction = (actionType: ActionType) => {
     if (!mqttClient) {
       setMessage("MQTT client not connected");
       return;
+    }
+
+    if (actionType === ActionType.PAUSE && agvState) {
+      setAgvState({
+        ...agvState,
+        driving: false
+      });
     }
 
     const action: InstantAction = {
@@ -126,21 +139,9 @@ const App: React.FC = () => {
       actionType,
     };
 
-    mqttClient.publish(
-      MQTT_TOPIC_INSTANT_ACTIONS,
-      JSON.stringify(action),
-      (err) => {
-        if (err) {
-          console.error(`Failed to send ${actionType} action:`, err);
-          setMessage(`Failed to send ${actionType} action`);
-        } else {
-          console.log(`${actionType} action sent:`, action);
-          setMessage(`${actionType} action sent successfully`);
-        }
-      }
-    );
+    mqttClient.publish(MQTT_TOPIC_INSTANT_ACTIONS, JSON.stringify(action));
   };
-
+  
   return (
     <div className="container">
       <h1>AGV Control Panel</h1>

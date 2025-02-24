@@ -28,7 +28,7 @@ export type AGVState = {
   driving: boolean;
   position: { x: number; y: number; theta: number };
   batteryState: { batteryCharge: number; charging: boolean };
-  operatingMode: 'AUTOMATIC' | 'MANUAL' | 'SERVICE';
+  operatingMode: 'AUTOMATIC' | 'MANUAL' | 'SERVICE' | 'STOPPED';
   actionStates: any[];
 };
 

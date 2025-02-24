@@ -98,7 +98,11 @@ button:hover {
   background-color: #0056b3;
 }
 
-.dynamic-value {
+/* .dynamic-value {
   transition: all 0.2s ease-in-out;
   display: inline-block;
+} */
+
+.dynamic-value {
+  transition: all 0.3s ease-in-out;
 }

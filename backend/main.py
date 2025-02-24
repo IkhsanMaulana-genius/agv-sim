@@ -2,6 +2,8 @@ import json
 import asyncio
 import logging
 import threading
+from queue import Queue
+import time
 from fastapi import FastAPI
 from paho.mqtt.client import Client as MQTTClient
 from agv_simulator import AGVSimulator, VDA5050Order, InstantAction, NodePosition
@@ -11,45 +13,59 @@ app = FastAPI()
 mqtt_client = MQTTClient()
 agv_simulator = AGVSimulator()
 
-# MQTT Topics
 MQTT_TOPIC_ORDER = "vda5050/order"
 MQTT_TOPIC_STATE = "vda5050/state"
 MQTT_TOPIC_INSTANT_ACTIONS = "vda5050/instantActions"
+MQTT_TOPIC_ACK = "vda5050/ack"
 
-# Enable logging
-logging.basicConfig(level=logging.DEBUG)
+state_queue = Queue()
+ack_queue = Queue()
 
 def on_connect(client, userdata, flags, rc):
     client.subscribe(MQTT_TOPIC_ORDER)
     client.subscribe(MQTT_TOPIC_INSTANT_ACTIONS)
+    client.subscribe(MQTT_TOPIC_ACK)
 
 def on_message(client, userdata, msg):
     try:
         payload = json.loads(msg.payload.decode())
-        print(f"Received message on topic {msg.topic}: {payload}")  # Debug print
-
-        if msg.topic == MQTT_TOPIC_ORDER:
-            # Convert raw dictionaries to NodePosition objects
+        print(f"Received message on topic {msg.topic}: {payload}")
+        
+        if msg.topic == MQTT_TOPIC_ACK:
+            ack_queue.put(payload)
+        elif msg.topic == MQTT_TOPIC_ORDER:
             payload["nodes"] = [NodePosition(**node) for node in payload.get("nodes", [])]
-
-            order = VDA5050Order(**payload)  # Now it works
-            asyncio.run(handle_order(order))
+            order = VDA5050Order(**payload)
+            state_queue.put(order)
+            threading.Thread(target=process_order_sync, args=(order,), daemon=True).start()
         elif msg.topic == MQTT_TOPIC_INSTANT_ACTIONS:
             action = InstantAction(**payload)
-            agv_simulator.process_instant_action(action)
+            state = agv_simulator.process_instant_action(action)
+            if state:
+                mqtt_client.publish(MQTT_TOPIC_STATE, json.dumps(dataclasses.asdict(state)), qos=1)
     except Exception as e:
-        print(f"Error processing MQTT message: {e}")
+        print(f"Error processing MQTT message: {str(e)}")
 
+def process_order_sync(order: VDA5050Order):
+    try:
+        for state in agv_simulator.process_order_sync(order):
+            state_dict = dataclasses.asdict(state)
+            print(f"Publishing state: {state_dict}")
+            mqtt_client.publish(MQTT_TOPIC_STATE, json.dumps(state_dict), qos=1)
+            
+            try:
+                ack = ack_queue.get(timeout=2)
+                print(f"Received ack: {ack}")
+            except Queue.Empty:
+                print("Timeout waiting for acknowledgment")
+                continue
+            
+            time.sleep(0.05)
+    except Exception as e:
+        print(f"Error in process_order_sync: {str(e)}")
 
-
-async def handle_order(order: VDA5050Order):
-    async for state in agv_simulator.process_order(order):
-        mqtt_client.publish(MQTT_TOPIC_STATE, json.dumps(dataclasses.asdict(state)))
-       
-
-# Setup MQTT with TLS
 mqtt_client.tls_set()
-mqtt_client.username_pw_set("test-user", "Strongpass@333333")  # Replace with your credentials
+mqtt_client.username_pw_set("test-user", "Strongpass@333333")
 
 try:
     mqtt_client.connect("d5452ceae5134e97ab158e11cde16dcc.s1.eu.hivemq.cloud", 8883)
