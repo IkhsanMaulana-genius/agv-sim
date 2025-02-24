@@ -47,6 +47,33 @@ class InstantAction:
     manufacturer: str = "AGVSimulator"
     serialNumber: str = "AGV001"
 
+@dataclass
+class Visualization:
+    headerId: int
+    timestamp: str
+    agvPosition: dict
+    customData: dict
+
+@dataclass
+class Factsheet:
+    headerId: int
+    timestamp: str
+    model: str
+    protocol: str
+    capabilities: List[str]
+    maxSpeed: float
+    maxRotationSpeed: float
+    dimensions: dict
+
+@dataclass
+class ErrorMessage:
+    headerId: int
+    timestamp: str
+    errorType: Literal["PROTOCOL", "HARDWARE", "SOFTWARE"]
+    errorLevel: Literal["WARNING", "FATAL"]
+    errorDescription: str
+    errorCode: int
+
 class AGVSimulator:
     def __init__(self):
         self.position = {"x": 0.0, "y": 0.0}
@@ -76,70 +103,6 @@ class AGVSimulator:
         self.position["y"] += (dy / distance) * step_size
         return False
     
-    # def process_order_sync(self, order: VDA5050Order):
-    #     self.current_order = order
-    #     self.state = "MOVING"
-    #     self._is_stopped = False
-    #     self._is_paused = False
-
-    #     yield self._get_state(order)
-
-    #     for node in order.nodes:
-    #         if self._is_stopped:
-    #             break
-
-    #         self._current_target = (node.x, node.y)
-
-    #         while not self._is_stopped:
-    #             if self._is_paused:
-    #                 yield self._get_state(order)
-    #                 while self._is_paused and not self._is_stopped:
-    #                     time.sleep(0.1)
-    #                 continue
-
-    #             if not self._move_towards(self._current_target):
-    #                 break
-
-    #             self.battery = max(0, self.battery - 0.01)
-    #             yield self._get_state(order)
-
-    #     if not self._is_stopped:
-    #         self.state = "IDLE"
-    #         yield self._get_state(order)
-
-
-    # def process_order_sync(self, order: VDA5050Order):
-    #     self.current_order = order
-    #     self.state = "MOVING"
-    #     self._is_stopped = False
-    #     self._is_paused = False
-
-    #     yield self._get_state(order)
-
-    #     for node in order.nodes:
-    #         if self._is_stopped:
-    #             break
-
-    #         self._current_target = (node.x, node.y)
-    #         target_reached = False
-
-    #         while not self._is_stopped and not target_reached:
-    #             if self._is_paused:
-    #                 yield self._get_state(order)
-    #                 while self._is_paused and not self._is_stopped:
-    #                     time.sleep(0.1)
-    #                 continue
-
-    #             if not self._move_towards(self._current_target):
-    #                 target_reached = True
-    #                 self.state = "IDLE"
-    #                 yield self._get_state(order)
-    #                 break
-
-    #             self.battery = max(0, self.battery - 0.01)
-    #             yield self._get_state(order)
-
-
 
     def process_order_sync(self, order: VDA5050Order):
         self.current_order = order
@@ -203,4 +166,38 @@ class AGVSimulator:
             batteryState={"batteryCharge": self.battery, "charging": False},
             operatingMode="AUTOMATIC",
             actionStates=[],
+        )
+
+    def publish_visualization(self):
+        return Visualization(
+            headerId=1,
+            timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            agvPosition={
+                "x": self.position["x"],
+                "y": self.position["y"],
+                "orientation": 0.0
+            },
+            customData={"state": self.state, "isMoving": self.state == "MOVING"}
+        )
+
+    def get_factsheet(self):
+        return Factsheet(
+            headerId=1,
+            timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            model="AGV-Simulator-2024",
+            protocol="VDA5050 2.0",
+            capabilities=["movement", "pause", "resume", "stop"],
+            maxSpeed=2.0,
+            maxRotationSpeed=1.0,
+            dimensions={"length": 1.2, "width": 0.8, "height": 0.5}
+        )
+
+    def report_error(self, error_type: str, description: str):
+        return ErrorMessage(
+            headerId=1,
+            timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            errorType=error_type,
+            errorLevel="WARNING",
+            errorDescription=description,
+            errorCode=1001
         )

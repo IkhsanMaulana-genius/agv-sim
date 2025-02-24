@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_MQTT_HOST=${REACT_APP_MQTT_HOST}
+      - REACT_APP_MQTT_PORT=${REACT_APP_MQTT_PORT}
+      - REACT_APP_MQTT_USERNAME=${REACT_APP_MQTT_USERNAME}
+      - REACT_APP_MQTT_PASSWORD=${REACT_APP_MQTT_PASSWORD}
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MQTT_HOST=${MQTT_HOST}
+      - MQTT_PORT=${MQTT_PORT}
+      - MQTT_USERNAME=${MQTT_USERNAME}
+      - MQTT_PASSWORD=${MQTT_PASSWORD}

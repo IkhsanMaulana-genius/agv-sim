@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
 import mqtt, { MqttClient } from "mqtt";
 import "./App.css";
-import { VDA5050Order, AGVState, InstantAction, ActionType } from "./type";
+import { VDA5050Order, AGVState, InstantAction, ActionType, Visualization, Factsheet, ErrorMessage } from "./type";
 
 const MQTT_TOPIC_ORDER = "vda5050/order";
 const MQTT_TOPIC_STATE = "vda5050/state";
 const MQTT_TOPIC_INSTANT_ACTIONS = "vda5050/instantActions";
 const MQTT_TOPIC_ACK = "vda5050/ack";
+const MQTT_TOPIC_VISUALIZATION = "vda5050/visualization";
+const MQTT_TOPIC_FACTSHEET = "vda5050/factsheet";
+const MQTT_TOPIC_ERROR = "vda5050/error";
 
 const initialState: AGVState = {
   headerId: 1,
@@ -31,6 +34,33 @@ const App: React.FC = () => {
   const [message, setMessage] = useState<string>("");
   const [coordinates, setCoordinates] = useState<string>("");
   const [mqttClient, setMqttClient] = useState<MqttClient | null>(null);
+  const [visualization, setVisualization] = useState<Visualization | null>(null);
+  const [factsheetData, setFactsheetData] = useState<Factsheet>({
+    headerId: 1,
+    timestamp: new Date().toISOString(),
+    model: "AGV-Simulator-2024",
+    protocol: "VDA5050 2.0",
+    capabilities: ["movement", "pause", "resume", "stop"],
+    maxSpeed: 2.0,
+    maxRotationSpeed: 1.0,
+    dimensions: {
+      length: 1.2,
+      width: 0.8,
+      height: 0.5
+    }
+  });
+  const [errors, setErrors] = useState<ErrorMessage[]>([]);
+
+
+  useEffect(() => {
+    if (mqttClient) {
+      // Request factsheet when component mounts
+      mqttClient.publish(MQTT_TOPIC_FACTSHEET, JSON.stringify({
+        requestId: Date.now(),
+        timestamp: new Date().toISOString()
+      }));
+    }
+  }, [mqttClient]);
 
   useEffect(() => {
     const mqttClient = mqtt.connect(
@@ -41,8 +71,13 @@ const App: React.FC = () => {
       }
     );
 
+    mqttClient.subscribe(MQTT_TOPIC_VISUALIZATION);
+    mqttClient.subscribe(MQTT_TOPIC_FACTSHEET);
+    mqttClient.subscribe(MQTT_TOPIC_ERROR);
+
     mqttClient.on("connect", () => {
       console.log("Connected to MQTT broker");
+      setMessage("Connected to MQTT broker successfully");
       setConnectionStatus("Connected");
       mqttClient.subscribe(MQTT_TOPIC_STATE, { qos: 1 });
     });
@@ -52,31 +87,57 @@ const App: React.FC = () => {
       setConnectionStatus("Connection Failed");
       setMessage("Failed to connect to MQTT broker");
     });
-
+    
     mqttClient.on("message", (topic, message) => {
-      if (topic === MQTT_TOPIC_STATE) {
-        try {
-          const state: AGVState = JSON.parse(message.toString());
-          if (state.operatingMode === "STOPPED") {
-            setAgvState(initialState);
-          } else {
-            setAgvState(state);
-          }
-          console.log("AGV State Received:", state);
-          setMessage("AGV state updated successfully");
-          
-          mqttClient.publish(MQTT_TOPIC_ACK, JSON.stringify({
-            stateId: state.headerId,
-            timestamp: new Date().toISOString()
-          }));
-        
-        } catch (error) {
-          console.error("Error parsing AGV state:", error);
-          setMessage("Error parsing AGV state");
+      try {
+        const payload = JSON.parse(message.toString());
+    
+        switch (topic) {
+          case MQTT_TOPIC_STATE:
+            const state: AGVState = payload;
+            if (state.operatingMode === "STOPPED") {
+              setAgvState(initialState);
+            } else {
+              setAgvState(state);
+            }
+            console.log("AGV State Received:", state);
+            setMessage("AGV state updated successfully");
+            
+            mqttClient.publish(MQTT_TOPIC_ACK, JSON.stringify({
+              stateId: state.headerId,
+              timestamp: new Date().toISOString()
+            }));
+            break;
+    
+          case MQTT_TOPIC_VISUALIZATION:
+            const vizData: Visualization = payload;
+            setVisualization(vizData);
+            console.log("Visualization data received:", vizData);
+            break;
+    
+          case MQTT_TOPIC_FACTSHEET:
+            // setFactsheetData(payload);
+            // console.log("Factsheet received:", payload);
+            // break;
+            const factsheet: Factsheet = payload;
+            setFactsheetData(factsheet);
+            // Remove or comment out this line
+            // console.log("Factsheet received:", factsheet);
+            break;
+          case MQTT_TOPIC_ERROR:
+            const error: ErrorMessage = payload;
+            setErrors(prev => [...prev, error]);
+            setMessage(`Error: ${error.errorDescription}`);
+            console.log("Error received:", error);
+            break;
         }
+      } catch (error) {
+        console.error("Error parsing message:", error);
+        setMessage("Error parsing message");
       }
     });
 
+    
     setMqttClient(mqttClient);
 
     return () => {
@@ -84,6 +145,8 @@ const App: React.FC = () => {
       mqttClient.end();
     };
   }, []);
+
+
 
   const validateCoordinates = (input: string): boolean => {
     const [x, y] = input.split(",").map(Number);
@@ -141,7 +204,71 @@ const App: React.FC = () => {
 
     mqttClient.publish(MQTT_TOPIC_INSTANT_ACTIONS, JSON.stringify(action));
   };
+
+  const VisualizationPanel = ({ visualization }: { visualization: Visualization | null }) => (
+    <div className="visualization-panel">
+      <h2>AGV Visualization</h2>
+      <div className="agv-canvas">
+        {visualization && (
+          <div 
+            className="agv-marker"
+            style={{
+              left: `${visualization.agvPosition.x}%`,
+              top: `${visualization.agvPosition.y}%`,
+              transform: `rotate(${visualization.agvPosition.orientation}deg)`
+            }}
+          >
+            🚛
+          </div>
+        )}
+        <div className="grid-lines"></div>
+      </div>
+    </div>
+  );
   
+const FactsheetPanel = ({ factsheet }: { factsheet: Factsheet | null }) => (
+  <div className="factsheet-panel">
+    <h2>AGV Factsheet</h2>
+    {factsheet && factsheet.capabilities && (
+      <div className="factsheet-details">
+        <p><strong>Model:</strong> {factsheet.model}</p>
+        <p><strong>Protocol:</strong> {factsheet.protocol}</p>
+        <p><strong>Max Speed:</strong> {factsheet.maxSpeed} m/s</p>
+        <p><strong>Dimensions:</strong> 
+          {factsheet.dimensions?.length}m × 
+          {factsheet.dimensions?.width}m × 
+          {factsheet.dimensions?.height}m
+        </p>
+        <div className="capabilities">
+          <strong>Capabilities:</strong>
+          <ul>
+            {factsheet.capabilities.map((cap, idx) => (
+              <li key={idx}>{cap}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    )}
+  </div>
+);
+  
+  const ErrorPanel = ({ errors }: { errors: ErrorMessage[] }) => (
+    <div className="error-panel">
+      <h2>Error Log</h2>
+      <div className="error-list">
+        {errors.map((error, idx) => (
+          <div key={idx} className={`error-item ${error.errorLevel.toLowerCase()}`}>
+            <span className="error-type">{error.errorType}</span>
+            <span className="error-description">{error.errorDescription}</span>
+            <span className="error-code">Code: {error.errorCode}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  
+
   return (
     <div className="container">
       <h1>AGV Control Panel</h1>
@@ -158,9 +285,7 @@ const App: React.FC = () => {
         </span>
       </div>
 
-      {/* Message Feedback */}
-      {/* {message && <div className="message">{message}</div>} */}
-
+      {/* Message Display */}
       <div
         className={`message ${
           message.includes("success") ? "success" : "error"
@@ -169,7 +294,13 @@ const App: React.FC = () => {
         {message}
       </div>
 
-      {/* AGV State */}
+      <div className="main-content">
+      <div className="left-panel">
+        <VisualizationPanel visualization={visualization} />
+      </div>
+      
+      <div className="right-panel">
+         {/* AGV State */}
       <div className="agv-state">
         <h2>AGV State</h2>
         {agvState ? (
@@ -207,6 +338,14 @@ const App: React.FC = () => {
           <p>No AGV state data available</p>
         )}
       </div>
+        
+        <FactsheetPanel factsheet={factsheetData} />
+        
+        <ErrorPanel errors={errors} />
+      </div>
+    </div>
+
+     
 
       {/* Input for Coordinates */}
       <div className="input-section">

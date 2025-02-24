@@ -47,3 +47,38 @@ export enum ActionType {
   RESUME = 'RESUME',
   STOP = 'STOP',
 }
+
+export type Visualization = {
+  headerId: number;
+  timestamp: string;
+  agvPosition: {
+    x: number;
+    y: number;
+    orientation: number;
+  };
+  customData: Record<string, any>;
+};
+
+export type Factsheet = {
+  headerId: number;
+  timestamp: string;
+  model: string;
+  protocol: string;
+  capabilities: string[];
+  maxSpeed: number;
+  maxRotationSpeed: number;
+  dimensions: {
+    length: number;
+    width: number;
+    height: number;
+  };
+};
+
+export type ErrorMessage = {
+  headerId: number;
+  timestamp: string;
+  errorType: 'PROTOCOL' | 'HARDWARE' | 'SOFTWARE';
+  errorLevel: 'WARNING' | 'FATAL';
+  errorDescription: string;
+  errorCode: number;
+};
