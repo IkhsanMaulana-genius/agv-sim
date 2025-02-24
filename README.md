@@ -21,17 +21,17 @@ A real-time AGV (Automated Guided Vehicle) simulator implementing the VDA5050 pr
 
 ### Frontend Environment (.env)
 ```env
-REACT_APP_MQTT_HOST=d5452ceae5134e97ab158e11cde16dcc.s1.eu.hivemq.cloud
+REACT_APP_MQTT_HOST=<MQTT Host URL>
 REACT_APP_MQTT_PORT=8884
-REACT_APP_MQTT_USERNAME=test-user
-REACT_APP_MQTT_PASSWORD=Strongpass@333333
+REACT_APP_MQTT_USERNAME=<UserName>
+REACT_APP_MQTT_PASSWORD=<Password>
 ```
 ### Backend Environment (.env)
 ```env
-MQTT_HOST=d5452ceae5134e97ab158e11cde16dcc.s1.eu.hivemq.cloud
+MQTT_HOST=<MQTT Host URL>
 MQTT_PORT=8883
-MQTT_USERNAME=test-user
-MQTT_PASSWORD=Strongpass@333333
+MQTT_USERNAME=<UserName>
+MQTT_PASSWORD=<Password>
 ```
 
 ## Installation
