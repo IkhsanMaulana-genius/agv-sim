@@ -1,0 +1,6 @@
+fastapi==0.104.1
+paho-mqtt==1.6.1
+python-dotenv==1.0.0
+uvicorn==0.24.0
+dataclasses==0.6
+typing==3.7.4.3
