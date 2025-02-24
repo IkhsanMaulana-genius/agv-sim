@@ -18,6 +18,14 @@ A real-time AGV (Automated Guided Vehicle) simulator implementing the VDA5050 pr
 - Communication: MQTT protocol over WebSocket
 - MQTT Broker: HiveMQ Cloud
 
+
+## Requirements
+
+- Python 3.12+
+- Node 20.18
+- HiveMQ Cloud Login
+
+
 ## Environment Setup
 
 ### Frontend Environment (.env)
