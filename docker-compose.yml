@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      - VITE_MQTT_HOST=${MQTT_HOST}
+      - VITE_MQTT_PORT=${MQTT_PORT}
+      - VITE_MQTT_USERNAME=${MQTT_USERNAME}
+      - VITE_MQTT_PASSWORD=${MQTT_PASSWORD}
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - '8000:8000'
+    environment:
+      - MQTT_HOST=${MQTT_HOST}
+      - MQTT_PORT=${MQTT_PORT}
+      - MQTT_USERNAME=${MQTT_USERNAME}
+      - MQTT_PASSWORD=${MQTT_PASSWORD}
